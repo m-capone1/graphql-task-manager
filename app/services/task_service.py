@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime
 
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,7 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.services.validators import CreateTaskData, extract_pydantic_error
 
 
 class _UnsetType:
@@ -93,6 +95,9 @@ async def list_tasks(
     first: int = 20,
     after: str | None = None,
 ) -> tuple[list[Task], bool, int]:
+    if not (1 <= first <= 100):
+        raise ValidationError("'first' must be between 1 and 100", field="first")
+
     filter_conditions = []
     if project_id is not None:
         filter_conditions.append(Task.project_id == project_id)
@@ -151,11 +156,14 @@ async def create_task(
     assignee_id: uuid.UUID | None = None,
     created_by_id: uuid.UUID,
 ) -> Task:
-    title = title.strip()
-    if not title:
-        raise ValidationError("Title cannot be empty", field="title")
-    if len(title) > 500:
-        raise ValidationError("Title must be 500 characters or fewer", field="title")
+    try:
+        data = CreateTaskData(title=title, description=description)
+    except PydanticValidationError as exc:
+        msg, field = extract_pydantic_error(exc)
+        raise ValidationError(msg, field=field)
+
+    title = data.title
+    description = data.description
 
     project = (
         await db.execute(select(Project).where(Project.id == project_id))
@@ -201,12 +209,19 @@ async def update_task(
     changed = False
 
     if not isinstance(title, _UnsetType):
-        if title is None or not str(title).strip():
+        stripped = str(title).strip() if title is not None else ""
+        if not stripped:
             raise ValidationError("Title cannot be empty", field="title")
-        task.title = str(title).strip()
+        if len(stripped) > 500:
+            raise ValidationError("Title must be 500 characters or fewer", field="title")
+        task.title = stripped
         changed = True
 
     if not isinstance(description, _UnsetType):
+        if description is not None and len(description) > 10_000:
+            raise ValidationError(
+                "Description must be 10,000 characters or fewer", field="description"
+            )
         task.description = description
         changed = True
 
@@ -247,7 +262,7 @@ async def change_task_status(
     if task is not None:
         return task
 
-    # Distinguish not-found from optimistic-lock conflict
+    # Distinguish not-found from optimistic-lock conflict.
     current = (
         await db.execute(select(Task).where(Task.id == task_id))
     ).scalar_one_or_none()
