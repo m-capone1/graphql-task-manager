@@ -1,4 +1,3 @@
-import enum
 import uuid
 from datetime import datetime
 from typing import Annotated, Union
@@ -8,8 +7,7 @@ from sqlalchemy import select
 from strawberry.types import Info
 
 from app.models.task import Task as TaskModel
-from app.models.task import TaskPriority as ORMPriority
-from app.models.task import TaskStatus as ORMStatus
+from app.schema.types.enums import TaskPriority, TaskSortField, TaskStatus, SortDirection
 from app.schema.types.errors import (
     ConflictError,
     DeleteSuccess,
@@ -19,37 +17,6 @@ from app.schema.types.errors import (
 )
 from app.schema.types.project import ProjectType
 from app.schema.types.user import UserType
-
-
-@strawberry.enum
-class TaskStatus(str, enum.Enum):
-    TODO = "TODO"
-    IN_PROGRESS = "IN_PROGRESS"
-    IN_REVIEW = "IN_REVIEW"
-    DONE = "DONE"
-    CANCELLED = "CANCELLED"
-
-
-@strawberry.enum
-class TaskPriority(str, enum.Enum):
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
-
-
-@strawberry.enum
-class SortDirection(str, enum.Enum):
-    ASC = "ASC"
-    DESC = "DESC"
-
-
-@strawberry.enum
-class TaskSortField(str, enum.Enum):
-    CREATED_AT = "CREATED_AT"
-    PRIORITY = "PRIORITY"
-    STATUS = "STATUS"
-    TITLE = "TITLE"
 
 
 @strawberry.type
@@ -184,21 +151,3 @@ DeleteResult = Annotated[
     Union[DeleteSuccess, NotFoundError, ForbiddenError],
     strawberry.union("DeleteResult"),
 ]
-
-
-# --- ORM enum conversion helpers ---
-
-def orm_status_to_gql(status: ORMStatus) -> TaskStatus:
-    return TaskStatus[status.name]
-
-
-def gql_status_to_orm(status: TaskStatus) -> ORMStatus:
-    return ORMStatus[status.name]
-
-
-def orm_priority_to_gql(priority: ORMPriority) -> TaskPriority:
-    return TaskPriority[priority.name]
-
-
-def gql_priority_to_orm(priority: TaskPriority) -> ORMPriority:
-    return ORMPriority[priority.name]

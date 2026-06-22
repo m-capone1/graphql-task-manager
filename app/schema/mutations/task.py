@@ -1,11 +1,11 @@
 import strawberry
 from strawberry.types import Info
 
+from app.schema.types.enums import TaskStatus
 from app.schema.types.task import (
     CreateTaskInput,
     DeleteResult,
     TaskResult,
-    TaskStatus,
     UpdateTaskInput,
 )
 

@@ -6,19 +6,21 @@ from app.schema.types.errors import (
     ValidationError,
 )
 from app.schema.types.project import ProjectType
+from app.schema.types.enums import (
+    SortDirection,
+    TaskPriority,
+    TaskSortField,
+    TaskStatus,
+)
 from app.schema.types.task import (
     CreateTaskInput,
     DeleteResult,
     PageInfo,
-    SortDirection,
     TaskConnection,
     TaskEdge,
     TaskFilter,
-    TaskPriority,
     TaskResult,
     TaskSort,
-    TaskSortField,
-    TaskStatus,
     TaskType,
     UpdateTaskInput,
 )
