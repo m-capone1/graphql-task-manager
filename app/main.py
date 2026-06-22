@@ -4,10 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.fastapi import GraphQLRouter
 
-from app.context import GraphQLContext
+from app.context import GraphQLContext, Loaders
 from app.database import get_session
 from app.models.user import User
 from app.schema import schema as graphql_schema
+from app.schema.dataloaders import make_project_loader, make_user_loader
 
 logger = structlog.get_logger()
 
@@ -27,7 +28,11 @@ async def get_context(
         except (ValueError, Exception):
             pass
 
-    return GraphQLContext(db=db, current_user=current_user)
+    loaders = Loaders(
+        user=make_user_loader(db),
+        project=make_project_loader(db),
+    )
+    return GraphQLContext(db=db, current_user=current_user, loaders=loaders)
 
 
 graphql_router = GraphQLRouter(graphql_schema, context_getter=get_context)

@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Annotated, Union
 
 import strawberry
-from sqlalchemy import select
 from strawberry.types import Info
 
 from app.models.task import Task as TaskModel
@@ -35,36 +34,20 @@ class TaskType:
 
     @strawberry.field
     async def project(self, info: Info) -> ProjectType:
-        # Phase 5: replace body with info.context.loaders.project.load(...)
-        from app.models.project import Project as ProjectModel
-
-        result = await info.context.db.execute(
-            select(ProjectModel).where(ProjectModel.id == uuid.UUID(str(self.project_id)))
-        )
-        return ProjectType.from_orm(result.scalar_one())
+        model = await info.context.loaders.project.load(uuid.UUID(str(self.project_id)))
+        return ProjectType.from_orm(model)
 
     @strawberry.field
     async def assignee(self, info: Info) -> UserType | None:
         if self.assignee_id is None:
             return None
-        # Phase 5: replace body with info.context.loaders.user.load(...)
-        from app.models.user import User as UserModel
-
-        result = await info.context.db.execute(
-            select(UserModel).where(UserModel.id == uuid.UUID(str(self.assignee_id)))
-        )
-        model = result.scalar_one_or_none()
+        model = await info.context.loaders.user.load(uuid.UUID(str(self.assignee_id)))
         return UserType.from_orm(model) if model else None
 
     @strawberry.field
     async def created_by(self, info: Info) -> UserType:
-        # Phase 5: replace body with info.context.loaders.user.load(...)
-        from app.models.user import User as UserModel
-
-        result = await info.context.db.execute(
-            select(UserModel).where(UserModel.id == uuid.UUID(str(self.created_by_id)))
-        )
-        return UserType.from_orm(result.scalar_one())
+        model = await info.context.loaders.user.load(uuid.UUID(str(self.created_by_id)))
+        return UserType.from_orm(model)
 
     @classmethod
     def from_orm(cls, model: TaskModel) -> "TaskType":
