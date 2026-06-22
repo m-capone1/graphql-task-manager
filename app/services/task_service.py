@@ -5,12 +5,28 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.project import Project
 from app.models.task import Task
 from app.models.task import TaskPriority as ORMPriority
 from app.models.task import TaskStatus as ORMStatus
+from app.models.user import User
 from app.schema.types.enums import SortDirection, TaskSortField
+from app.services.exceptions import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
+
+
+class _UnsetType:
+    pass
+
+
+_UNSET = _UnsetType()
 
 # Cursor helpers
 
@@ -120,3 +136,140 @@ async def list_tasks(
     rows = list((await db.execute(q)).scalars().all())
     has_next = len(rows) > first
     return rows[:first], has_next, total
+
+
+# Mutations
+
+
+async def create_task(
+    db: AsyncSession,
+    *,
+    title: str,
+    project_id: uuid.UUID,
+    description: str | None = None,
+    priority: ORMPriority = ORMPriority.MEDIUM,
+    assignee_id: uuid.UUID | None = None,
+    created_by_id: uuid.UUID,
+) -> Task:
+    title = title.strip()
+    if not title:
+        raise ValidationError("Title cannot be empty", field="title")
+    if len(title) > 500:
+        raise ValidationError("Title must be 500 characters or fewer", field="title")
+
+    project = (
+        await db.execute(select(Project).where(Project.id == project_id))
+    ).scalar_one_or_none()
+    if project is None:
+        raise NotFoundError("Project", str(project_id))
+
+    if assignee_id is not None:
+        user = (
+            await db.execute(select(User).where(User.id == assignee_id))
+        ).scalar_one_or_none()
+        if user is None:
+            raise NotFoundError("User", str(assignee_id))
+
+    task = Task(
+        title=title,
+        description=description,
+        priority=priority,
+        status=ORMStatus.TODO,
+        project_id=project_id,
+        assignee_id=assignee_id,
+        created_by_id=created_by_id,
+    )
+    db.add(task)
+    await db.flush()
+    await db.refresh(task)
+    return task
+
+
+async def update_task(
+    db: AsyncSession,
+    task_id: uuid.UUID,
+    *,
+    title: str | None | _UnsetType = _UNSET,
+    description: str | None | _UnsetType = _UNSET,
+    priority: ORMPriority | _UnsetType = _UNSET,
+    assignee_id: uuid.UUID | None | _UnsetType = _UNSET,
+) -> Task:
+    task = await get_task(db, task_id)
+    if task is None:
+        raise NotFoundError("Task", str(task_id))
+
+    changed = False
+
+    if not isinstance(title, _UnsetType):
+        if title is None or not str(title).strip():
+            raise ValidationError("Title cannot be empty", field="title")
+        task.title = str(title).strip()
+        changed = True
+
+    if not isinstance(description, _UnsetType):
+        task.description = description
+        changed = True
+
+    if not isinstance(priority, _UnsetType):
+        task.priority = priority
+        changed = True
+
+    if not isinstance(assignee_id, _UnsetType):
+        if assignee_id is not None:
+            user = (
+                await db.execute(select(User).where(User.id == assignee_id))
+            ).scalar_one_or_none()
+            if user is None:
+                raise NotFoundError("User", str(assignee_id))
+        task.assignee_id = assignee_id
+        changed = True
+
+    if changed:
+        await db.flush()
+        await db.refresh(task)
+    return task
+
+
+async def change_task_status(
+    db: AsyncSession,
+    task_id: uuid.UUID,
+    status: ORMStatus,
+    version: int,
+) -> Task:
+    stmt = (
+        sa_update(Task)
+        .where(Task.id == task_id, Task.version == version)
+        .values(status=status, version=version + 1, updated_at=func.now())
+        .returning(Task)
+    )
+    result = await db.execute(stmt)
+    task = result.scalars().one_or_none()
+    if task is not None:
+        return task
+
+    # Distinguish not-found from optimistic-lock conflict
+    current = (
+        await db.execute(select(Task).where(Task.id == task_id))
+    ).scalar_one_or_none()
+    if current is None:
+        raise NotFoundError("Task", str(task_id))
+    raise ConflictError(
+        "Task was modified concurrently — please refresh and retry.",
+        current_version=current.version,
+    )
+
+
+async def delete_task(
+    db: AsyncSession,
+    task_id: uuid.UUID,
+    current_user_id: uuid.UUID,
+) -> None:
+    task = await get_task(db, task_id)
+    if task is None:
+        raise NotFoundError("Task", str(task_id))
+
+    if task.created_by_id != current_user_id and task.assignee_id != current_user_id:
+        raise ForbiddenError("Only the task creator or assignee can delete this task")
+
+    await db.delete(task)
+    await db.flush()
