@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime
 
+import structlog
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy import update as sa_update
@@ -22,6 +23,8 @@ from app.services.exceptions import (
     ValidationError,
 )
 from app.services.validators import CreateTaskData, extract_pydantic_error
+
+logger = structlog.get_logger()
 
 
 class _UnsetType:
@@ -268,6 +271,12 @@ async def change_task_status(
     ).scalar_one_or_none()
     if current is None:
         raise NotFoundError("Task", str(task_id))
+    logger.warning(
+        "task.conflict",
+        task_id=str(task_id),
+        client_version=version,
+        current_version=current.version,
+    )
     raise ConflictError(
         "Task was modified concurrently — please refresh and retry.",
         current_version=current.version,
@@ -284,6 +293,12 @@ async def delete_task(
         raise NotFoundError("Task", str(task_id))
 
     if task.created_by_id != current_user_id and task.assignee_id != current_user_id:
+        logger.warning(
+            "task.delete_forbidden",
+            task_id=str(task_id),
+            requesting_user_id=str(current_user_id),
+            created_by_id=str(task.created_by_id),
+        )
         raise ForbiddenError("Only the task creator or assignee can delete this task")
 
     await db.delete(task)
