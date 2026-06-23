@@ -65,16 +65,20 @@ def mock_user():
     return u
 
 
-@pytest_asyncio.fixture
-async def client(mock_user):
-    async def override_context():
+def _context_override(current_user):
+    async def override():
         return GraphQLContext(
             db=AsyncMock(),
-            current_user=mock_user,
+            current_user=current_user,
             loaders=Loaders(user=AsyncMock(), project=AsyncMock()),
         )
 
-    app.dependency_overrides[get_context] = override_context
+    return override
+
+
+@pytest_asyncio.fixture
+async def client(mock_user):
+    app.dependency_overrides[get_context] = _context_override(mock_user)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.pop(get_context, None)
@@ -82,14 +86,7 @@ async def client(mock_user):
 
 @pytest_asyncio.fixture
 async def unauthed_client():
-    async def override_context():
-        return GraphQLContext(
-            db=AsyncMock(),
-            current_user=None,
-            loaders=Loaders(user=AsyncMock(), project=AsyncMock()),
-        )
-
-    app.dependency_overrides[get_context] = override_context
+    app.dependency_overrides[get_context] = _context_override(None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.pop(get_context, None)

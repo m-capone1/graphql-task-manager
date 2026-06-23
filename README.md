@@ -24,8 +24,22 @@ A Makefile is included for common tasks:
 | `make build` | Start containers with a fresh build |
 | `make restart` | Tear down and rebuild from scratch |
 | `make down` | Stop containers and remove volumes |
+| `make seed` | Load sample users, projects, and tasks |
 | `make test` | Run the test suite inside the container |
 | `make lint` | Run `ruff` linting inside the container |
+
+### Seed data
+
+Run `make seed` after startup to load sample data for manual testing. It is idempotent — safe to run multiple times.
+
+| Entity | ID | Details |
+|---|---|---|
+| User: Alice | `00000000-0000-0000-0000-000000000001` | Use as `X-User-Id` header |
+| User: Bob | `00000000-0000-0000-0000-000000000002` | Use as `X-User-Id` header |
+| Project: Backend API | `00000000-0000-0000-0000-000000000010` | Has 3 tasks |
+| Project: Mobile App | `00000000-0000-0000-0000-000000000011` | Has 2 tasks |
+
+Tasks are seeded across all statuses (`TODO`, `IN_PROGRESS`, `IN_REVIEW`, `DONE`) so pagination, filtering, and status transitions can be tested immediately.
 
 ---
 

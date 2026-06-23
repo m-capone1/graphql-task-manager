@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,19 +9,18 @@ from app.models.project import Project
 from app.models.user import User
 
 
-def make_user_loader(db: AsyncSession) -> DataLoader:
-    async def load_fn(keys: list[uuid.UUID]) -> list[User | None]:
-        result = await db.execute(select(User).where(User.id.in_(keys)))
-        by_id = {u.id: u for u in result.scalars().all()}
+def _make_loader(model: Any, db: AsyncSession) -> DataLoader:
+    async def load_fn(keys: list[uuid.UUID]) -> list[Any]:
+        result = await db.execute(select(model).where(model.id.in_(keys)))
+        by_id = {obj.id: obj for obj in result.scalars().all()}
         return [by_id.get(k) for k in keys]
 
     return DataLoader(load_fn=load_fn)
+
+
+def make_user_loader(db: AsyncSession) -> DataLoader:
+    return _make_loader(User, db)
 
 
 def make_project_loader(db: AsyncSession) -> DataLoader:
-    async def load_fn(keys: list[uuid.UUID]) -> list[Project | None]:
-        result = await db.execute(select(Project).where(Project.id.in_(keys)))
-        by_id = {p.id: p for p in result.scalars().all()}
-        return [by_id.get(k) for k in keys]
-
-    return DataLoader(load_fn=load_fn)
+    return _make_loader(Project, db)

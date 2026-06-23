@@ -62,22 +62,20 @@ def decode_cursor(cursor: str) -> tuple[TaskSortField, object, uuid.UUID]:
     return field, value, task_id
 
 
+_SORT_ATTR: dict[TaskSortField, str] = {
+    TaskSortField.CREATED_AT: "created_at",
+    TaskSortField.PRIORITY: "priority",
+    TaskSortField.STATUS: "status",
+    TaskSortField.TITLE: "title",
+}
+
+
 def task_sort_value(task: Task, field: TaskSortField) -> object:
-    return {
-        TaskSortField.CREATED_AT: task.created_at,
-        TaskSortField.PRIORITY: task.priority,
-        TaskSortField.STATUS: task.status,
-        TaskSortField.TITLE: task.title,
-    }[field]
+    return getattr(task, _SORT_ATTR[field])
 
 
 def _sort_col(field: TaskSortField):
-    return {
-        TaskSortField.CREATED_AT: Task.created_at,
-        TaskSortField.PRIORITY: Task.priority,
-        TaskSortField.STATUS: Task.status,
-        TaskSortField.TITLE: Task.title,
-    }[field]
+    return getattr(Task, _SORT_ATTR[field])
 
 # Queries
 
@@ -118,10 +116,10 @@ async def list_tasks(
     total: int = (await db.execute(count_q)).scalar_one()
 
     # Keyset cursor: (sort_col, id) comparison avoids OFFSET scans
+    col = _sort_col(sort_field)
     page_conditions = list(filter_conditions)
     if after:
         _, cursor_val, cursor_id = decode_cursor(after)
-        col = _sort_col(sort_field)
         if sort_direction == SortDirection.DESC:
             page_conditions.append(
                 or_(col < cursor_val, and_(col == cursor_val, Task.id < cursor_id))
@@ -130,8 +128,6 @@ async def list_tasks(
             page_conditions.append(
                 or_(col > cursor_val, and_(col == cursor_val, Task.id > cursor_id))
             )
-
-    col = _sort_col(sort_field)
     q = select(Task)
     if page_conditions:
         q = q.where(and_(*page_conditions))

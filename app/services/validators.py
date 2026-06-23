@@ -1,11 +1,9 @@
-from typing import Optional
-
 from pydantic import BaseModel, Field, ValidationError as PydanticValidationError, field_validator
 
 
 class CreateTaskData(BaseModel):
     title: str = Field(..., max_length=500)
-    description: Optional[str] = Field(None, max_length=10_000)
+    description: str | None = Field(None, max_length=10_000)
 
     @field_validator("title")
     @classmethod

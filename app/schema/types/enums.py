@@ -37,16 +37,8 @@ class TaskSortField(str, enum.Enum):
     TITLE = "TITLE"
 
 
-def orm_status_to_gql(status: ORMStatus) -> TaskStatus:
-    return TaskStatus[status.name]
-
-
 def gql_status_to_orm(status: TaskStatus) -> ORMStatus:
     return ORMStatus[status.name]
-
-
-def orm_priority_to_gql(priority: ORMPriority) -> TaskPriority:
-    return TaskPriority[priority.name]
 
 
 def gql_priority_to_orm(priority: TaskPriority) -> ORMPriority:

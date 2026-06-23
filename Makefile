@@ -1,4 +1,4 @@
-.PHONY: up down restart build test lint
+.PHONY: up down restart build test lint seed
 
 up:
 	docker compose up -d
@@ -17,3 +17,6 @@ test:
 
 lint:
 	docker compose exec app ruff check app/ tests/
+
+seed:
+	docker compose exec app python -m scripts.seed

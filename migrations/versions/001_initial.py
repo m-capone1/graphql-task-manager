@@ -59,20 +59,20 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "todo", "in_progress", "in_review", "done", "cancelled",
+                "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "CANCELLED",
                 name="task_status",
             ),
             nullable=False,
-            server_default="todo",
+            server_default="TODO",
         ),
         sa.Column(
             "priority",
             sa.Enum(
-                "low", "medium", "high", "critical",
+                "LOW", "MEDIUM", "HIGH", "CRITICAL",
                 name="task_priority",
             ),
             nullable=False,
-            server_default="medium",
+            server_default="MEDIUM",
         ),
         sa.Column("version", sa.Integer, nullable=False, server_default="1"),
         sa.Column(

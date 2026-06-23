@@ -9,18 +9,18 @@ from app.models.base import Base
 
 
 class TaskStatus(str, enum.Enum):
-    TODO = "todo"
-    IN_PROGRESS = "in_progress"
-    IN_REVIEW = "in_review"
-    DONE = "done"
-    CANCELLED = "cancelled"
+    TODO = "TODO"
+    IN_PROGRESS = "IN_PROGRESS"
+    IN_REVIEW = "IN_REVIEW"
+    DONE = "DONE"
+    CANCELLED = "CANCELLED"
 
 
 class TaskPriority(str, enum.Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
 
 class Task(Base):
