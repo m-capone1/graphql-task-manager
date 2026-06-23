@@ -7,7 +7,7 @@ automatically if no database is reachable (see conftest.integration_engine).
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import delete
@@ -92,7 +92,7 @@ class TestKeysetPagination:
     async def test_walks_pages_in_stable_order(self, db_session):
         project = await _make_project(db_session)
         creator = await _make_user(db_session)
-        base = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        base = datetime(2025, 1, 1, tzinfo=UTC)
         for i in range(5):
             db_session.add(
                 Task(

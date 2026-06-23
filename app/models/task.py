@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     IN_REVIEW = "IN_REVIEW"
@@ -16,7 +16,7 @@ class TaskStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class TaskPriority(str, enum.Enum):
+class TaskPriority(enum.StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"

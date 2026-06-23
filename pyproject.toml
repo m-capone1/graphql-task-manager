@@ -47,3 +47,4 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
+combine-as-imports = true

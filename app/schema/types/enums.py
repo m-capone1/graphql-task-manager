@@ -2,12 +2,11 @@ import enum
 
 import strawberry
 
-from app.models.task import TaskPriority as ORMPriority
-from app.models.task import TaskStatus as ORMStatus
+from app.models.task import TaskPriority as ORMPriority, TaskStatus as ORMStatus
 
 
 @strawberry.enum
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     TODO = "TODO"
     IN_PROGRESS = "IN_PROGRESS"
     IN_REVIEW = "IN_REVIEW"
@@ -16,7 +15,7 @@ class TaskStatus(str, enum.Enum):
 
 
 @strawberry.enum
-class TaskPriority(str, enum.Enum):
+class TaskPriority(enum.StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
@@ -24,13 +23,13 @@ class TaskPriority(str, enum.Enum):
 
 
 @strawberry.enum
-class SortDirection(str, enum.Enum):
+class SortDirection(enum.StrEnum):
     ASC = "ASC"
     DESC = "DESC"
 
 
 @strawberry.enum
-class TaskSortField(str, enum.Enum):
+class TaskSortField(enum.StrEnum):
     CREATED_AT = "CREATED_AT"
     PRIORITY = "PRIORITY"
     STATUS = "STATUS"

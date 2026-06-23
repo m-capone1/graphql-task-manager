@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,8 +13,7 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 from app.context import GraphQLContext, Loaders
 from app.main import app, get_context
-from app.models.task import TaskPriority as ORMPriority
-from app.models.task import TaskStatus as ORMStatus
+from app.models.task import TaskPriority as ORMPriority, TaskStatus as ORMStatus
 
 
 def make_mock_task(**kwargs) -> MagicMock:
@@ -29,8 +28,8 @@ def make_mock_task(**kwargs) -> MagicMock:
     t.project_id = kwargs.get("project_id", uuid.uuid4())
     t.assignee_id = kwargs.get("assignee_id", None)
     t.created_by_id = kwargs.get("created_by_id", uuid.uuid4())
-    t.created_at = kwargs.get("created_at", datetime.now(timezone.utc))
-    t.updated_at = kwargs.get("updated_at", datetime.now(timezone.utc))
+    t.created_at = kwargs.get("created_at", datetime.now(UTC))
+    t.updated_at = kwargs.get("updated_at", datetime.now(UTC))
     return t
 
 

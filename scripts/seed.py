@@ -7,9 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.models.project import Project
 from app.models.task import Task, TaskPriority, TaskStatus
-from app.models.user import User
 
 # Fixed UUIDs so re-running the script is idempotent
 ALICE_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -45,10 +43,11 @@ async def _seed(db: AsyncSession) -> None:
     # Projects
     await db.execute(
         text(
-            "INSERT INTO projects (id, name, description) VALUES (:id, :name, :desc) ON CONFLICT DO NOTHING"
+            "INSERT INTO projects (id, name, description) "
+            "VALUES (:id, :name, :desc) ON CONFLICT DO NOTHING"
         ),
         [
-            {"id": str(PROJ_BACKEND_ID), "name": "Backend API", "desc": "GraphQL task management API"},
+            {"id": str(PROJ_BACKEND_ID), "name": "Backend API", "desc": "GraphQL task management"},
             {"id": str(PROJ_MOBILE_ID), "name": "Mobile App", "desc": "iOS and Android client"},
         ],
     )
@@ -110,7 +109,7 @@ async def _seed(db: AsyncSession) -> None:
             db.add(task)
 
     print(f"Seeded 2 users, 2 projects, {len(tasks)} tasks.")
-    print(f"\nUseful IDs for testing:")
+    print("\nUseful IDs for testing:")
     print(f"  Alice (X-User-Id):  {ALICE_ID}")
     print(f"  Bob   (X-User-Id):  {BOB_ID}")
     print(f"  Backend API project: {PROJ_BACKEND_ID}")

@@ -6,14 +6,16 @@ from datetime import datetime
 
 import structlog
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy import update as sa_update
+from sqlalchemy import and_, func, or_, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
-from app.models.task import Task, is_valid_transition
-from app.models.task import TaskPriority as ORMPriority
-from app.models.task import TaskStatus as ORMStatus
+from app.models.task import (
+    Task,
+    TaskPriority as ORMPriority,
+    TaskStatus as ORMStatus,
+    is_valid_transition,
+)
 from app.models.user import User
 from app.schema.types.enums import SortDirection, TaskSortField
 from app.services.exceptions import (

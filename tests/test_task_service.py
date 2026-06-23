@@ -3,8 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.models.task import TaskPriority as ORMPriority
-from app.models.task import TaskStatus as ORMStatus
+from app.models.task import TaskPriority as ORMPriority, TaskStatus as ORMStatus
 from app.services import task_service
 from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from tests.conftest import make_execute_result, make_mock_task

@@ -1,3 +1,9 @@
+from app.schema.types.enums import (
+    SortDirection,
+    TaskPriority,
+    TaskSortField,
+    TaskStatus,
+)
 from app.schema.types.errors import (
     ConflictError,
     DeleteSuccess,
@@ -6,12 +12,6 @@ from app.schema.types.errors import (
     ValidationError,
 )
 from app.schema.types.project import ProjectType
-from app.schema.types.enums import (
-    SortDirection,
-    TaskPriority,
-    TaskSortField,
-    TaskStatus,
-)
 from app.schema.types.task import (
     CreateTaskInput,
     DeleteResult,

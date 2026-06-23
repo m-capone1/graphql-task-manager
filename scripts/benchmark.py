@@ -68,7 +68,9 @@ def summarize(name: str, latencies_ms: list[float], wall_s: float | None = None)
         print(f"    wall={wall_s:.2f}s  throughput={len(latencies_ms) / wall_s:,.0f} req/s")
 
 
-async def post(client: httpx.AsyncClient, query: str, variables: dict, *, auth: bool = False) -> dict:
+async def post(
+    client: httpx.AsyncClient, query: str, variables: dict, *, auth: bool = False
+) -> dict:
     headers = {"X-User-Id": str(USER_ID)} if auth else {}
     resp = await client.post(URL, json={"query": query, "variables": variables}, headers=headers)
     return resp.json()
@@ -170,8 +172,9 @@ async def bench_nested_vs_flat(client: httpx.AsyncClient) -> None:
         t = time.perf_counter()
         await post(client, PAGE_NESTED, {"pid": str(PROJECT_ID), "first": 100})
         nested.append((time.perf_counter() - t) * 1000)
+    ratio = pct(nested, 50) / pct(flat, 50)
     print(f"    flat   p50={pct(flat, 50):.1f}ms")
-    print(f"    nested p50={pct(nested, 50):.1f}ms  (ratio {pct(nested, 50) / pct(flat, 50):.1f}x — "
+    print(f"    nested p50={pct(nested, 50):.1f}ms  (ratio {ratio:.1f}x — "
           f"would be ~100x if N+1)\n")
 
 
@@ -236,14 +239,23 @@ async def bench_robustness(client: httpx.AsyncClient) -> None:
     print("[5] Input robustness — malformed input should be typed errors, never a 500")
     checks = []
 
-    bad_cursor = await post(client, PAGE_FLAT, {"pid": str(PROJECT_ID), "first": 5, "after": "not-a-cursor"})
+    bad_cursor = await post(
+        client, PAGE_FLAT, {"pid": str(PROJECT_ID), "first": 5, "after": "not-a-cursor"}
+    )
     checks.append(("invalid cursor", "errors" in bad_cursor or bad_cursor.get("data") is not None))
 
-    big = await client.post(URL, json={"query": PAGE_FLAT, "variables": {"pid": str(PROJECT_ID), "first": 999999}})
+    big = await client.post(
+        URL, json={"query": PAGE_FLAT, "variables": {"pid": str(PROJECT_ID), "first": 999999}}
+    )
     checks.append(("first=999999 (clamped)", big.status_code == 200))
 
-    unauth = await client.post(URL, json={
-        "query": CHANGE_STATUS, "variables": {"id": str(uuid.uuid4()), "status": "DONE", "version": 1}})
+    unauth = await client.post(
+        URL,
+        json={
+            "query": CHANGE_STATUS,
+            "variables": {"id": str(uuid.uuid4()), "status": "DONE", "version": 1},
+        },
+    )
     typename = unauth.json()["data"]["changeTaskStatus"]["__typename"]
     checks.append(("unauthenticated mutation", typename == "ForbiddenError"))
 

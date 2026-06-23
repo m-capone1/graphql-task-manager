@@ -1,8 +1,6 @@
 import uuid
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.services.exceptions import ConflictError, NotFoundError, ValidationError
 from tests.conftest import make_mock_task
 
@@ -64,7 +62,10 @@ class TestTasksQuery:
     async def test_returns_task_list(self, client):
         mock_task = make_mock_task(title="First Task")
 
-        with patch("app.services.task_service.list_tasks", AsyncMock(return_value=([mock_task], False, 1))):
+        with patch(
+            "app.services.task_service.list_tasks",
+            AsyncMock(return_value=([mock_task], False, 1)),
+        ):
             data = await gql(client, self.QUERY, {"first": 10})
 
         result = data["data"]["tasks"]
@@ -87,7 +88,10 @@ class TestTasksQuery:
     async def test_has_next_page(self, client):
         tasks = [make_mock_task() for _ in range(2)]
 
-        with patch("app.services.task_service.list_tasks", AsyncMock(return_value=(tasks, True, 10))):
+        with patch(
+            "app.services.task_service.list_tasks",
+            AsyncMock(return_value=(tasks, True, 10)),
+        ):
             data = await gql(client, self.QUERY, {"first": 2})
 
         result = data["data"]["tasks"]
@@ -100,7 +104,10 @@ class TestTasksQuery:
         mock_task = make_mock_task()
         fake_cursor = "somecursor"
 
-        with patch("app.services.task_service.list_tasks", AsyncMock(return_value=([mock_task], False, 5))):
+        with patch(
+            "app.services.task_service.list_tasks",
+            AsyncMock(return_value=([mock_task], False, 5)),
+        ):
             data = await gql(client, self.QUERY, {"after": fake_cursor})
 
         assert data["data"]["tasks"]["pageInfo"]["hasPreviousPage"] is True
@@ -211,7 +218,9 @@ class TestAssignTaskMutation:
         mock_task = make_mock_task(assignee_id=user_id)
 
         with patch("app.services.task_service.update_task", AsyncMock(return_value=mock_task)):
-            data = await gql(client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(user_id)})
+            data = await gql(
+                client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(user_id)}
+            )
 
         assert data["data"]["assignTask"]["assigneeId"] == str(user_id)
 
@@ -224,13 +233,17 @@ class TestAssignTaskMutation:
         assert data["data"]["assignTask"]["assigneeId"] is None
 
     async def test_requires_auth(self, unauthed_client):
-        data = await gql(unauthed_client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(uuid.uuid4())})
+        data = await gql(
+            unauthed_client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(uuid.uuid4())}
+        )
         assert data["data"]["assignTask"]["message"] == "Authentication required"
 
     async def test_not_found(self, client):
         err = NotFoundError("Task", str(uuid.uuid4()))
         with patch("app.services.task_service.update_task", AsyncMock(side_effect=err)):
-            data = await gql(client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(uuid.uuid4())})
+            data = await gql(
+                client, self.MUTATION, {"id": str(uuid.uuid4()), "userId": str(uuid.uuid4())}
+            )
 
         assert "message" in data["data"]["assignTask"]
 

@@ -18,8 +18,7 @@ from app.schema.types.task import (
     TaskType,
     UpdateTaskInput,
 )
-from app.services import exceptions as svc
-from app.services import task_service
+from app.services import exceptions as svc, task_service
 
 
 def _parse_uuid(raw: str, label: str) -> uuid.UUID | GQLValidationError:

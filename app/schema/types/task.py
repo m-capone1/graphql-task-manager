@@ -1,12 +1,12 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Union
+from typing import Annotated
 
 import strawberry
 from strawberry.types import Info
 
 from app.models.task import Task as TaskModel
-from app.schema.types.enums import TaskPriority, TaskSortField, TaskStatus, SortDirection
+from app.schema.types.enums import SortDirection, TaskPriority, TaskSortField, TaskStatus
 from app.schema.types.errors import (
     ConflictError,
     DeleteSuccess,
@@ -126,11 +126,11 @@ class TaskSort:
 # --- Union result types ---
 
 TaskResult = Annotated[
-    Union[TaskType, NotFoundError, ValidationError, ConflictError, ForbiddenError],
+    TaskType | NotFoundError | ValidationError | ConflictError | ForbiddenError,
     strawberry.union("TaskResult"),
 ]
 
 DeleteResult = Annotated[
-    Union[DeleteSuccess, NotFoundError, ForbiddenError],
+    DeleteSuccess | NotFoundError | ForbiddenError,
     strawberry.union("DeleteResult"),
 ]

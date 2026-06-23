@@ -3,7 +3,7 @@ import uuid
 import strawberry
 from strawberry.types import Info
 
-from app.schema.types.enums import TaskSortField, gql_priority_to_orm, gql_status_to_orm
+from app.schema.types.enums import gql_priority_to_orm, gql_status_to_orm
 from app.schema.types.errors import NotFoundError
 from app.schema.types.task import (
     PageInfo,
