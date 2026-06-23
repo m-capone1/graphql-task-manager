@@ -181,15 +181,6 @@ mutation {
 
 The `version` field must match the task's current version in the database. If another client has modified the task concurrently, a `ConflictError` is returned with the latest version so the client can retry.
 
-Valid status transitions:
-
-```
-TODO → IN_PROGRESS → IN_REVIEW → DONE
-                               → CANCELLED
-```
-
-`DONE` and `CANCELLED` are terminal — no further transitions are allowed.
-
 #### Assign / unassign a task
 
 ```graphql
@@ -284,7 +275,9 @@ In practice the auth context does two things: it stamps `created_by_id` on new t
 pytest tests/ -v
 ```
 
-The test suite uses a separate test database, rolls back each test in a transaction, and covers:
+Right now the database is mocked across all tests. A future improvement would be wiring up a real test database for the integration tests — the `db` service in docker-compose is already there.
+
+Covers:
 - Task service unit tests (create, update, status transitions, conflict detection, permissions)
 - GraphQL integration tests (queries, mutations, error union responses)
 
