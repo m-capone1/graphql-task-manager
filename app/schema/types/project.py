@@ -5,7 +5,7 @@ import strawberry
 from app.models.project import Project as ProjectModel
 
 
-@strawberry.type
+@strawberry.type(name="Project")
 class ProjectType:
     id: strawberry.ID
     name: str

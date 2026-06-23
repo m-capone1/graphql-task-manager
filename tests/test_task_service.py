@@ -151,8 +151,12 @@ class TestListTasks:
 
 class TestChangeTaskStatus:
     async def test_advances_status(self, db):
-        mock_task = make_execute_result(scalar=MagicMock(status=ORMStatus.IN_PROGRESS, version=2))
-        db.execute.return_value = mock_task
+        current = MagicMock(status=ORMStatus.TODO, version=1)
+        updated = MagicMock(status=ORMStatus.IN_PROGRESS, version=2)
+        db.execute.side_effect = [
+            make_execute_result(scalar=current),
+            make_execute_result(scalar=updated),
+        ]
 
         result = await task_service.change_task_status(
             db, uuid.uuid4(), ORMStatus.IN_PROGRESS, version=1
@@ -161,13 +165,20 @@ class TestChangeTaskStatus:
         assert result.status == ORMStatus.IN_PROGRESS
         assert result.version == 2
 
-    async def test_conflict_on_stale_version(self, db):
-        existing_task = MagicMock()
-        existing_task.version = 1
+    async def test_rejects_invalid_transition(self, db):
+        current = MagicMock(status=ORMStatus.DONE, version=3)
+        db.execute.return_value = make_execute_result(scalar=current)
 
+        with pytest.raises(ValidationError):
+            await task_service.change_task_status(
+                db, uuid.uuid4(), ORMStatus.TODO, version=3
+            )
+
+    async def test_conflict_on_stale_version(self, db):
+        current = MagicMock(status=ORMStatus.TODO, version=1)
         db.execute.side_effect = [
+            make_execute_result(scalar=current),
             make_execute_result(scalar=None),
-            make_execute_result(scalar=existing_task),
         ]
 
         with pytest.raises(ConflictError) as exc_info:
@@ -177,10 +188,7 @@ class TestChangeTaskStatus:
         assert exc_info.value.current_version == 1
 
     async def test_not_found(self, db):
-        db.execute.side_effect = [
-            make_execute_result(scalar=None),
-            make_execute_result(scalar=None),
-        ]
+        db.execute.return_value = make_execute_result(scalar=None)
 
         with pytest.raises(NotFoundError):
             await task_service.change_task_status(

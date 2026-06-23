@@ -1,24 +1,41 @@
-from pydantic import BaseModel, Field, ValidationError as PydanticValidationError, field_validator
+from pydantic import BaseModel, ValidationError as PydanticValidationError, field_validator
+
+TITLE_MAX = 500
+DESCRIPTION_MAX = 10_000
+
+
+def validate_title(value: str | None) -> str:
+    if value is None:
+        raise ValueError("Title cannot be empty")
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("Title cannot be empty")
+    if len(stripped) > TITLE_MAX:
+        raise ValueError(f"Title must be {TITLE_MAX} characters or fewer")
+    return stripped
+
+
+def validate_description(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if len(value) > DESCRIPTION_MAX:
+        raise ValueError(f"Description must be {DESCRIPTION_MAX:,} characters or fewer")
+    return value.strip() or None
 
 
 class CreateTaskData(BaseModel):
-    title: str = Field(..., max_length=500)
-    description: str | None = Field(None, max_length=10_000)
+    title: str
+    description: str | None = None
 
     @field_validator("title")
     @classmethod
-    def normalize_title(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Title cannot be empty")
-        return v
+    def _validate_title(cls, v: str) -> str:
+        return validate_title(v)
 
     @field_validator("description")
     @classmethod
-    def normalize_description(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        return v.strip() or None
+    def _validate_description(cls, v: str | None) -> str | None:
+        return validate_description(v)
 
 
 def extract_pydantic_error(exc: PydanticValidationError) -> tuple[str, str | None]:

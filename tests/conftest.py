@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
@@ -5,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
+from app.config import settings
 from app.context import GraphQLContext, Loaders
 from app.main import app, get_context
 from app.models.task import TaskPriority as ORMPriority
@@ -90,3 +95,45 @@ async def unauthed_client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.pop(get_context, None)
+
+
+# ---------------------------------------------------------------------------
+# Integration-test fixtures — real PostgreSQL, schema assumed already migrated
+# (the app container runs `alembic upgrade head` on startup; `make test` execs
+# into it). Override the target with TEST_DATABASE_URL. If no database is
+# reachable, these fixtures skip rather than fail, so the mocked suite still
+# runs standalone.
+# ---------------------------------------------------------------------------
+
+def _integration_db_url() -> str:
+    return os.environ.get("TEST_DATABASE_URL") or settings.database_url
+
+
+@pytest_asyncio.fixture
+async def integration_engine():
+    engine = create_async_engine(_integration_db_url(), poolclass=NullPool)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 — any connect failure means skip
+        await engine.dispose()
+        pytest.skip(f"Integration database not reachable: {exc}")
+    yield engine
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def db_session(integration_engine):
+    """A session wrapped in a transaction that is always rolled back, so tests
+    never persist anything. Service functions only flush (commit lives in the
+    resolver layer), so the rollback fully isolates each test."""
+    conn = await integration_engine.connect()
+    trans = await conn.begin()
+    session = AsyncSession(bind=conn, expire_on_commit=False)
+    try:
+        yield session
+    finally:
+        await session.close()
+        if trans.is_active:
+            await trans.rollback()
+        await conn.close()

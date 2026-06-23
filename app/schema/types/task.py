@@ -18,7 +18,7 @@ from app.schema.types.project import ProjectType
 from app.schema.types.user import UserType
 
 
-@strawberry.type
+@strawberry.type(name="Task")
 class TaskType:
     id: strawberry.ID
     title: str

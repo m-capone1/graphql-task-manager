@@ -11,7 +11,7 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
-from app.models.task import Task
+from app.models.task import Task, is_valid_transition
 from app.models.task import TaskPriority as ORMPriority
 from app.models.task import TaskStatus as ORMStatus
 from app.models.user import User
@@ -22,11 +22,18 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.services.validators import CreateTaskData, extract_pydantic_error
+from app.services.validators import (
+    CreateTaskData,
+    extract_pydantic_error,
+    validate_description,
+    validate_title,
+)
 
 logger = structlog.get_logger()
 
 
+# Sentinel for partial updates: lets update_task distinguish "caller omitted this
+# field" (leave it alone) from "caller passed null" (e.g. clear the assignee).
 class _UnsetType:
     pass
 
@@ -115,7 +122,9 @@ async def list_tasks(
         count_q = count_q.where(and_(*filter_conditions))
     total: int = (await db.execute(count_q)).scalar_one()
 
-    # Keyset cursor: (sort_col, id) comparison avoids OFFSET scans
+    # Keyset cursor: seek past the last-seen (sort_col, id) instead of OFFSET,
+    # so each page is an index range rather than a scan of everything before it.
+    # The id is the tiebreaker for rows that share the same sort value.
     col = _sort_col(sort_field)
     page_conditions = list(filter_conditions)
     if after:
@@ -208,20 +217,17 @@ async def update_task(
     changed = False
 
     if not isinstance(title, _UnsetType):
-        stripped = str(title).strip() if title is not None else ""
-        if not stripped:
-            raise ValidationError("Title cannot be empty", field="title")
-        if len(stripped) > 500:
-            raise ValidationError("Title must be 500 characters or fewer", field="title")
-        task.title = stripped
+        try:
+            task.title = validate_title(title)
+        except ValueError as e:
+            raise ValidationError(str(e), field="title")
         changed = True
 
     if not isinstance(description, _UnsetType):
-        if description is not None and len(description) > 10_000:
-            raise ValidationError(
-                "Description must be 10,000 characters or fewer", field="description"
-            )
-        task.description = description
+        try:
+            task.description = validate_description(description)
+        except ValueError as e:
+            raise ValidationError(str(e), field="description")
         changed = True
 
     if not isinstance(priority, _UnsetType):
@@ -250,23 +256,32 @@ async def change_task_status(
     status: ORMStatus,
     version: int,
 ) -> Task:
+    # Read first so we can tell "not found" from "stale version" apart, and
+    # validate the transition against the task's actual current status.
+    current = (
+        await db.execute(select(Task).where(Task.id == task_id))
+    ).scalar_one_or_none()
+    if current is None:
+        raise NotFoundError("Task", str(task_id))
+
+    if not is_valid_transition(current.status, status):
+        raise ValidationError(
+            f"Cannot transition task from {current.status.value} to {status.value}",
+            field="status",
+        )
+
+    # The `version` in the WHERE clause is the optimistic lock: if another client
+    # changed the task since this one read it, no row matches and we conflict.
     stmt = (
         sa_update(Task)
         .where(Task.id == task_id, Task.version == version)
         .values(status=status, version=version + 1, updated_at=func.now())
         .returning(Task)
     )
-    result = await db.execute(stmt)
-    task = result.scalars().one_or_none()
+    task = (await db.execute(stmt)).scalars().one_or_none()
     if task is not None:
         return task
 
-    # Distinguish not-found from optimistic-lock conflict.
-    current = (
-        await db.execute(select(Task).where(Task.id == task_id))
-    ).scalar_one_or_none()
-    if current is None:
-        raise NotFoundError("Task", str(task_id))
     logger.warning(
         "task.conflict",
         task_id=str(task_id),

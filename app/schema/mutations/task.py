@@ -126,6 +126,8 @@ class Mutation:
             )
         except svc.NotFoundError as e:
             return GQLNotFoundError(message=str(e))
+        except svc.ValidationError as e:
+            return GQLValidationError(message=e.message, field=e.field)
         except svc.ConflictError as e:
             return GQLConflictError(message=e.message, current_version=e.current_version)
 

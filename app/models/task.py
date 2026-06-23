@@ -23,6 +23,19 @@ class TaskPriority(str, enum.Enum):
     CRITICAL = "CRITICAL"
 
 
+ALLOWED_STATUS_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
+    TaskStatus.TODO: {TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED},
+    TaskStatus.IN_PROGRESS: {TaskStatus.IN_REVIEW, TaskStatus.TODO, TaskStatus.CANCELLED},
+    TaskStatus.IN_REVIEW: {TaskStatus.DONE, TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED},
+    TaskStatus.DONE: set(),
+    TaskStatus.CANCELLED: set(),
+}
+
+
+def is_valid_transition(current: TaskStatus, new: TaskStatus) -> bool:
+    return new in ALLOWED_STATUS_TRANSITIONS[current]
+
+
 class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (

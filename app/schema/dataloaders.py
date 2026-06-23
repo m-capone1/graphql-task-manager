@@ -13,6 +13,8 @@ def _make_loader(model: Any, db: AsyncSession) -> DataLoader:
     async def load_fn(keys: list[uuid.UUID]) -> list[Any]:
         result = await db.execute(select(model).where(model.id.in_(keys)))
         by_id = {obj.id: obj for obj in result.scalars().all()}
+        # DataLoader requires one result per key, in the same order, with None
+        # where a key had no row — hence the lookup rather than returning rows directly.
         return [by_id.get(k) for k in keys]
 
     return DataLoader(load_fn=load_fn)

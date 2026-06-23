@@ -5,7 +5,7 @@ import strawberry
 from app.models.user import User as UserModel
 
 
-@strawberry.type
+@strawberry.type(name="User")
 class UserType:
     id: strawberry.ID
     email: str

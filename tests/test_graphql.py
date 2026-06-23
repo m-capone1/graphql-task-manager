@@ -19,7 +19,7 @@ class TestTaskQuery:
     QUERY = """
     query GetTask($id: ID!) {
         task(id: $id) {
-            ... on TaskType { id title status version }
+            ... on Task { id title status version }
             ... on NotFoundError { message }
         }
     }
@@ -110,7 +110,7 @@ class TestCreateTaskMutation:
     MUTATION = """
     mutation CreateTask($input: CreateTaskInput!) {
         createTask(input: $input) {
-            ... on TaskType { id title status version }
+            ... on Task { id title status version }
             ... on ValidationError { message field }
             ... on ForbiddenError { message }
             ... on NotFoundError { message }
@@ -156,7 +156,7 @@ class TestUpdateTaskMutation:
     MUTATION = """
     mutation UpdateTask($id: ID!, $input: UpdateTaskInput!) {
         updateTask(id: $id, input: $input) {
-            ... on TaskType { id title priority }
+            ... on Task { id title priority }
             ... on ValidationError { message field }
             ... on NotFoundError { message }
             ... on ForbiddenError { message }
@@ -199,7 +199,7 @@ class TestAssignTaskMutation:
     MUTATION = """
     mutation AssignTask($id: ID!, $userId: ID) {
         assignTask(id: $id, userId: $userId) {
-            ... on TaskType { id assigneeId }
+            ... on Task { id assigneeId }
             ... on NotFoundError { message }
             ... on ForbiddenError { message }
         }
@@ -239,7 +239,7 @@ class TestChangeTaskStatusMutation:
     MUTATION = """
     mutation ChangeStatus($id: ID!, $status: TaskStatus!, $version: Int!) {
         changeTaskStatus(id: $id, status: $status, version: $version) {
-            ... on TaskType { id status version }
+            ... on Task { id status version }
             ... on ConflictError { message currentVersion }
             ... on NotFoundError { message }
         }

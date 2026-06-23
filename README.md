@@ -73,6 +73,15 @@ This API uses a stub auth mechanism: pass a valid user UUID in the `X-User-Id` h
 X-User-Id: <user-uuid>
 ```
 
+For example, with `curl`:
+
+```bash
+curl -X POST http://localhost:8000/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: 00000000-0000-0000-0000-000000000001" \
+  -d '{"query": "{ tasks(first: 5) { totalCount edges { node { id title status } } } }"}'
+```
+
 In production this would be swapped for a real identity provider like Auth0 — the header becomes a JWT bearer token, verified against the provider's JWKS endpoint, with the user ID pulled from the token claims.
 
 ---
@@ -173,6 +182,7 @@ mutation {
   changeTaskStatus(id: "<task-uuid>", status: IN_REVIEW, version: 2) {
     ... on Task { id status version }
     ... on ConflictError { message currentVersion }
+    ... on ValidationError { message field }
     ... on NotFoundError { message }
     ... on ForbiddenError { message }
   }
@@ -180,6 +190,8 @@ mutation {
 ```
 
 The `version` field must match the task's current version in the database. If another client has modified the task concurrently, a `ConflictError` is returned with the latest version so the client can retry.
+
+Status changes are also constrained to valid workflow transitions (see below). An illegal transition returns a `ValidationError` rather than silently applying.
 
 #### Assign / unassign a task
 
@@ -235,6 +247,11 @@ Tasks carry a `version` integer. `changeTaskStatus` requires the client to pass 
 
 Locking is intentionally scoped to status changes. Status is where concurrent conflicts actually matter — two people closing the same ticket simultaneously is a real problem. For metadata like title or priority, last-write-wins is acceptable; the cost of a concurrent rename is low and forcing clients to send `version` on every field edit makes the API worse for little gain.
 
+### Status transitions
+Status changes are validated against an explicit workflow, not free-form. A task moves `TODO → IN_PROGRESS → IN_REVIEW → DONE`, can be kicked back a step (e.g. a failed review returns `IN_REVIEW → IN_PROGRESS`), and can be `CANCELLED` from any active state. `DONE` and `CANCELLED` are terminal. An illegal transition returns a `ValidationError`.
+
+This is separate from optimistic locking: the version check guards against *concurrent* writes, while the transition rules guard against *invalid* ones. The allowed map lives next to the `TaskStatus` enum so the domain rule sits with the entity it governs.
+
 ### DataLoaders (N+1 prevention)
 Without DataLoaders, fetching 50 tasks and their assignees and projects would fire 100+ queries. A `UserDataLoader` and `ProjectDataLoader` batch all ID lookups within a request into a single query per type.
 
@@ -265,21 +282,25 @@ In practice the auth context does two things: it stamps `created_by_id` on new t
 
 - **Rate limiting** — since everything goes through a single endpoint, per-IP HTTP rate limiting doesn't get you far. What you actually want is per-user limits on mutations and query depth/complexity limits to stop someone crafting an expensive nested query. Strawberry has extension hooks for this.
 - **Broader test coverage** — I'd add integration tests for every mutation's happy path, pagination edge cases (empty pages, single-item pages, cursor stability when rows are inserted mid-browse), and the full set of invalid status transitions.
+- **Lazy `totalCount`** — `tasks` always runs a `COUNT(*)` over the filtered set for `totalCount`, even when the client doesn't select that field. Under load (see `scripts/benchmark.py`) that's a wasted scan on every request. I'd make `totalCount` a lazily-resolved field so the count only runs when it's actually requested.
+- **Request-level transaction boundary** — currently each mutation commits its own work. GraphQL allows several mutations in one document, executed serially, so an early mutation can persist while a later one fails, leaving the request half-applied. I'd move the commit to a single point after the operation completes (e.g. the session dependency or a schema extension) so the whole request succeeds or rolls back together.
 
 ---
 
 ## Testing
 
 ```bash
-# Requires a running PostgreSQL instance (or use the Docker db service)
+make test           # runs the whole suite inside the app container
+# or, against your own database:
 pytest tests/ -v
 ```
 
-Right now the database is mocked across all tests. A future improvement would be wiring up a real test database for the integration tests — the `db` service in docker-compose is already there.
+The suite has two layers:
 
-Covers:
-- Task service unit tests (create, update, status transitions, conflict detection, permissions)
-- GraphQL integration tests (queries, mutations, error union responses)
+- **Contract tests** (`test_task_service.py`, `test_graphql.py`) mock the database so they run fast and in isolation. They pin down the service-layer branching (validation, permissions, conflict handling) and the GraphQL wiring (error unions resolve to the right `__typename`, auth is enforced).
+- **Integration tests** (`test_integration.py`) run against a **real PostgreSQL** database — the part mocks can't prove. They exercise the keyset pagination SQL across multiple pages, the native enum round-trip through a filter, the status-transition rules, and the headline concurrency case: two independent sessions racing on one task, where the stale writer loses with a `ConflictError`.
+
+The integration tests run against the `db` container (already migrated on startup) when invoked via `make test`. If no database is reachable they **skip** rather than fail, so the contract tests still run anywhere. Each test rolls its work back — the database is never polluted. In a real CI pipeline you'd run these against a dedicated throwaway test database rather than the app's own; that's a config change, not a code one (set `TEST_DATABASE_URL`).
 
 ---
 
