@@ -23,12 +23,12 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://lush:lush_secret@db:5432/lush_tasks
+    volumes:
+      - .:/app
     depends_on:
       db:
         condition: service_healthy
-    # Runs migrations then starts the server — migrations are idempotent so this is safe
-    command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 volumes:
   postgres_data:

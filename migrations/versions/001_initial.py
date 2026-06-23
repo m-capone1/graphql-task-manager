@@ -18,19 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create PostgreSQL ENUM types before the tables that use them.
-    # Using create_type=False on the Column definitions below because we create them here.
-    task_status = postgresql.ENUM(
-        "todo", "in_progress", "in_review", "done", "cancelled",
-        name="task_status",
-    )
-    task_priority = postgresql.ENUM(
-        "low", "medium", "high", "critical",
-        name="task_priority",
-    )
-    task_status.create(op.get_bind(), checkfirst=True)
-    task_priority.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "users",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -74,7 +61,6 @@ def upgrade() -> None:
             sa.Enum(
                 "todo", "in_progress", "in_review", "done", "cancelled",
                 name="task_status",
-                create_type=False,
             ),
             nullable=False,
             server_default="todo",
@@ -84,7 +70,6 @@ def upgrade() -> None:
             sa.Enum(
                 "low", "medium", "high", "critical",
                 name="task_priority",
-                create_type=False,
             ),
             nullable=False,
             server_default="medium",
@@ -122,11 +107,9 @@ def upgrade() -> None:
         ),
     )
 
-    # Individual column indexes for filtered queries
     op.create_index("idx_tasks_project_id", "tasks", ["project_id"])
     op.create_index("idx_tasks_assignee_id", "tasks", ["assignee_id"])
     op.create_index("idx_tasks_status", "tasks", ["status"])
-    # Composite index for the primary list query: tasks in a project, ordered by time
     op.create_index("idx_tasks_project_cursor", "tasks", ["project_id", "created_at", "id"])
 
 

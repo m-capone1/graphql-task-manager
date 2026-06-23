@@ -31,6 +31,12 @@ htmlcov/
 # mypy
 .mypy_cache/
 
+# ruff
+.ruff_cache/
+
+# Claude Code
+.claude/
+
 # IDE
 .vscode/
 .idea/
