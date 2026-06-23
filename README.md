@@ -8,8 +8,10 @@ A GraphQL API for managing tasks within projects. Built with Python, Strawberry 
 
 **Requirements:** Docker and Docker Compose.
 
+First, create a `.env` file in the project root. Use [`.env.example`](.env.example) as a reference.
+
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
 The API will be available at `http://localhost:8000/graphql` with the interactive GraphiQL explorer at the same URL in a browser.
